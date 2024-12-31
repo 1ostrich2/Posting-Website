@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, EmailField, PasswordField, BooleanField, SubmitField
+from wtforms import StringField, EmailField, PasswordField, BooleanField, SubmitField, FileField, TextAreaField
 from wtforms.validators import DataRequired, Length, Email
 
 class RegisterForm(FlaskForm):
@@ -15,11 +15,12 @@ class LoginForm(FlaskForm):
 
 class CreatePostForm(FlaskForm):
     title = StringField(label="Title", validators=[DataRequired(), Length(5, 35)])
-    content = StringField(label="Description", validators=[DataRequired(), Length(10, 500)])
+    content = TextAreaField(label="Description", validators=[DataRequired(), Length(10, 500)])
+    attachment = FileField(label="Upload Attachment")
     submit = SubmitField(label="Post")
 
 class DeletePostForm(FlaskForm):
-    submit = SubmitField(label="Delete")    
+    submit = SubmitField(label="Delete")
 
 class AddCommentForm(FlaskForm):
     content = StringField(label="Description", validators=[DataRequired(), Length(1, 500)])

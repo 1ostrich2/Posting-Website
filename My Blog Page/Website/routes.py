@@ -1,9 +1,12 @@
-from flask import render_template, redirect, url_for, flash
+from flask import render_template, redirect, url_for, flash, request, send_from_directory
 from Website.main import app
 from Website.forms import RegisterForm, LoginForm, CreatePostForm, DeletePostForm, ChangeDisplayNameForm, ChangePasswordForm, AddCommentForm
 from Website.models import db, user_model, post_model, comment_model
-import flask_login
 from flask_bcrypt import Bcrypt
+import flask_login
+import secrets
+import werkzeug
+
 
 # Initiating Bcrypt
 bcrypt = Bcrypt(app)
@@ -38,19 +41,34 @@ def load_user(user_id):
 
 # Website routes
 
+@app.route('/show_attachment/<filename>', methods=['GET', 'POST'])
+def show_attachment(filename):
+    if filename:
+        print(f"{filename} exists")
+
+    else:
+        print("no filename")
+
+    return send_from_directory(app.config['UPLOAD_DIRECTORY'], filename)
+
+
+@app.route('/like_post/')
+
+
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/home', methods=['GET', 'POST'])
 def home():
-    posts = post_model.query.all()
+    posts = post_model.query.all()[::-1]
     users = []
+
     for post in posts:
         users.append( user_model.query.filter_by(user_id=post.user_id).first() )
         
     return render_template('public/home.html', posts_and_users=zip(posts,users))
 
 
-@app.route('/posts/<int:post_id>', methods=['GET', 'POST'])
-def posts(post_id):
+@app.route('/view_post/<int:post_id>', methods=['GET', 'POST'])
+def view_post(post_id):
     current_user = flask_login.current_user
     addCommentForm = AddCommentForm()
     deletePostForm = DeletePostForm()
@@ -70,7 +88,7 @@ def posts(post_id):
         db.session.commit()
 
         flash('Your comment was added!', category="success")
-        return redirect(url_for('posts', post_id=post_id))
+        return redirect(url_for('view_post', post_id=post_id))
 
     if deletePostForm.validate_on_submit():
         if post.user_id == current_user.user_id:
@@ -79,9 +97,9 @@ def posts(post_id):
             db.session.commit()
 
             flash('Your post was succesfully deleted.', category="success")
-            return redirect(url_for('posts', post_id=post_id))
+            return redirect(url_for('home'))
     
-    return render_template('public/post.html', post=post, user=user,  comments=comments, current_user=current_user, addCommentForm=addCommentForm, deletePostForm=deletePostForm)
+    return render_template('public/view_post.html', post=post, user=user,  comments=comments, current_user=current_user, addCommentForm=addCommentForm, deletePostForm=deletePostForm)
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -191,7 +209,22 @@ def create_post():
         
         newPostTitle = form.title.data
         newPostContent = form.content.data
-        newPost = post_model(title=newPostTitle, content=newPostContent, user_id=user.user_id)
+        newPostAttachmentFile = request.files['attachment']
+        
+
+        if newPostAttachmentFile:
+            newPostAttachmentFileName = newPostAttachmentFile.filename.split('.')[0] # "dog"
+            newPostAttachmentFileExtension = "." + newPostAttachmentFile.filename.split('.')[1] # ".webp" or ".png"
+
+            newPostAttachmentFileNameSecure = werkzeug.utils.secure_filename(f"{secrets.token_hex(32)}{newPostAttachmentFileName}{newPostAttachmentFileExtension}") # rough example: "1N38U4g349ut092jFiSDnsvZdog.png"
+            print(f"Custom Logging/Image Upload Alert: {newPostAttachmentFileName} was submitted as an attachment to a post called {newPostTitle}!")
+            
+            newPostAttachmentFile.save(f'Website/static/uploads/{newPostAttachmentFileNameSecure}')
+
+        else:
+            newPostAttachmentFileNameSecure = None
+        
+        newPost = post_model(title=newPostTitle, content=newPostContent, user_id=user.user_id, upvote_count=0, downvote_count=0, attachment=newPostAttachmentFileNameSecure)
         
         db.session.add_all([newPost])
         db.session.commit()
@@ -200,3 +233,8 @@ def create_post():
         return redirect(url_for('home'))
 
     return render_template('user/utils/create_post.html', form=form)
+
+
+
+
+    
